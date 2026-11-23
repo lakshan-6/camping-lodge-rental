@@ -1,0 +1,2 @@
+import {notFound} from 'next/navigation';import {settings} from '../../lib/server';import defaults from '../../lib/defaults.json';import Site from './site';
+export const dynamic='force-dynamic';export default async function Page({params}:{params:Promise<{slug?:string[]}>}){const {slug=[]}=await params;const s=await settings().catch(()=>defaults);if(!['','rent','packages','buy','cart','checkout','guide','contact','reviews','account','admin','login','about','privacy','refund'].includes(slug[0]||'')||slug[0]==='guide'&&!s.guide)notFound();return <Site path={slug.join('/')}/>}

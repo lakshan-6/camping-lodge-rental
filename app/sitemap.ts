@@ -1,0 +1,2 @@
+import type {MetadataRoute} from 'next';import {settings} from '../lib/server';
+export default async function sitemap():Promise<MetadataRoute.Sitemap>{const base=process.env.NEXT_PUBLIC_SITE_URL||'http://localhost:3000';const s=await settings().catch(()=>({guide:true}));return ['', '/rent','/packages','/buy','/contact','/about','/privacy','/refund','/reviews',...(s.guide?['/guide']:[])].map(p=>({url:base+p}))}
