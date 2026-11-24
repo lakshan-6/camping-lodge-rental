@@ -1,9 +1,287 @@
-import {NextResponse as R} from 'next/server';import {db,settings,identity} from '../../../lib/server';import seed from '../../../lib/seed.json';import nodemailer from 'nodemailer';import {z} from 'zod';
-export const dynamic='force-dynamic';
-const tables=['catalog','categories','packages','guides','orders','profiles','messages','subscribers','roles'];
-const ok=(data:unknown)=>R.json(data);const fail=(message:string,status=400)=>R.json({error:message},{status});
-const str=z.string().trim().min(1).max(500);const phone=z.string().regex(/^[+\d ()-]{7,20}$/);const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-async function role(user:any){if(!user)return null;return (await db().from('roles').select('role').eq('user_id',user.id).maybeSingle()).data?.role}
-function checked(r:any){if(r.error)throw new Error(r.error.message);return r.data}
-export async function GET(req:Request,{params}:{params:Promise<{action:string}>}){try{const {action}=await params;if(action==='public'){if(!process.env.NEXT_PUBLIC_SUPABASE_URL)return ok({...seed,demo:true});const d=db();const s=await settings();const data=await Promise.all(['catalog','categories','packages','guides'].map(async t=>[t,checked(await (t==='categories'?d.from(t).select('*'):d.from(t).select('*').eq('active',true)))]));return ok({settings:s,...Object.fromEntries(data),demo:false})}const user=await identity(req);if(action==='reviews'){const s=await settings();if(!s.place_id||!process.env.GOOGLE_PLACES_API_KEY)return ok({reviews:[]});const r=await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(s.place_id)}`,{headers:{'X-Goog-Api-Key':process.env.GOOGLE_PLACES_API_KEY,'X-Goog-FieldMask':'rating,userRatingCount,reviews,googleMapsUri'},next:{revalidate:3600}});if(!r.ok)return ok({reviews:[]});const x=await r.json();return ok({...x,reviews:(x.reviews||[]).filter((v:any)=>!s.hidden_reviews.includes(v.name))})}if(!user)return fail('Sign in first',401);const d=db();if(action==='account')return ok({profile:checked(await d.from('profiles').select('*').eq('id',user.id).maybeSingle()),orders:checked(await d.from('orders').select('*').eq('user_id',user.id).order('created_at',{ascending:false})),favorites:checked(await d.from('favorites').select('item_id').eq('user_id',user.id)),role:await role(user)});if(action==='admin'){const r=await role(user);if(!r)return fail('Forbidden',403);const data=await Promise.all(tables.filter(t=>t!=='roles'||r==='Owner').map(async t=>[t,checked(await d.from(t).select('*'))]));return ok({role:r,settings:await settings(),...Object.fromEntries(data)})}return fail('Not found',404)}catch(e:any){return fail(e.message,500)}}
-export async function POST(req:Request,{params}:{params:Promise<{action:string}>}){try{const {action}=await params;if(!process.env.NEXT_PUBLIC_SUPABASE_URL)return fail('Connect Supabase to enable submissions',503);const d=db();const user=await identity(req);if(action==='upload'){if(!await role(user))return fail('Forbidden',403);const f=(await req.formData()).get('file');if(!(f instanceof File)||!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>5000000)return fail('Choose JPEG, PNG or WebP under 5 MB');const path=crypto.randomUUID()+'.'+f.type.split('/')[1];checked(await d.storage.from('gear').upload(path,f,{contentType:f.type}));return ok({url:d.storage.from('gear').getPublicUrl(path).data.publicUrl})}const b=await req.json();if(b.website)return fail('Invalid submission');if(action==='contact'){const v=z.object({name:str,phone:phone.optional().or(z.literal('')),email:z.string().email(),subject:str,message:z.string().min(1).max(5000)}).parse(b);checked(await d.from('messages').insert(v));let emailed=false;try{if(process.env.SMTP_USER){await nodemailer.createTransport({host:process.env.SMTP_HOST||'smtp.gmail.com',port:Number(process.env.SMTP_PORT||465),secure:Number(process.env.SMTP_PORT||465)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASSWORD}}).sendMail({from:process.env.SMTP_USER,to:(await settings()).email,replyTo:v.email,subject:'Camping Lodge: '+v.subject,text:JSON.stringify(v,null,2)});emailed=true}}catch{console.error('Contact email failed')}return ok({saved:true,emailed})}if(action==='subscribe'){checked(await d.from('subscribers').insert(z.object({name:str,contact:str}).parse(b)));return ok({saved:true})}if(action==='checkout'){const v=z.object({name:str,phone,pickup:date,return_date:date,delivery:z.boolean(),address:z.string().max(1000),notes:z.string().max(2000),cart:z.array(z.object({id:z.string().uuid(),kind:z.enum(['item','package']),quantity:z.number().int().min(1).max(100)})).min(1).max(100)}).parse(b);const days=(Date.parse(v.return_date)-Date.parse(v.pickup))/86400000;if(!Number.isInteger(days)||days<1||days>90||v.pickup<new Date(Date.now()+19800000).toISOString().slice(0,10)||v.delivery&&!v.address.trim())return fail('Invalid rental dates or delivery address');const items=checked(await d.from('catalog').select('*').eq('active',true));const packs=checked(await d.from('packages').select('*').eq('active',true));const lines:any[]=[];const labels:string[]=[];let total=0;for(const c of v.cart){const p=(c.kind==='item'?items:packs).find((x:any)=>x.id===c.id);if(!p)return fail('Item unavailable');const cost=Number(p.price)*c.quantity*days;total+=cost;labels.push(`${labels.length+1}. ${p.name} x${c.quantity} – Rs.${p.price} x ${days} days = Rs.${cost}`);for(const l of c.kind==='item'?[{item_id:p.id,quantity:1}]:p.items){const item=items.find((x:any)=>x.id===l.item_id);if(!item)return fail('Package item unavailable');lines.push({item_id:l.item_id,quantity:l.quantity*c.quantity,name:item.name,source:p.name,kind:c.kind,source_id:p.id})}}const s=await settings();if(v.delivery)total+=Number(s.delivery_charge);if(s.deposit_enabled)total+=Number(s.deposit);const {cart,...details}=v;const o=checked(await d.rpc('book',{p:{...details,user_id:user?.id||null,lines,total}}));const message=`Hello ${s.name}! I'd like to place a rental order.\nOrder: CL-${o.number}\nName: ${v.name}\nPhone: ${v.phone}\nPickup: ${v.pickup} | Return: ${v.return_date}\nItems:\n${labels.join('\n')}\nDelivery: Rs.${v.delivery?s.delivery_charge:0}\nRefundable deposit: Rs.${s.deposit_enabled?s.deposit:0}\nTOTAL: Rs.${total}\nPlease confirm availability. Thank you!`;return ok({number:o.number,total,url:`https://wa.me/${s.whatsapp}?text=${encodeURIComponent(message)}`})}if(!user)return fail('Sign in first',401);if(action==='profile'){checked(await d.from('profiles').upsert({...z.object({name:str,phone,address:z.string().max(1000)}).parse(b),id:user.id}));return ok({saved:true})}if(action==='favorite'){const id=z.string().uuid().parse(b.id);if(b.remove)checked(await d.from('favorites').delete().eq('user_id',user.id).eq('item_id',id));else checked(await d.from('favorites').upsert({user_id:user.id,item_id:id}));return ok({saved:true})}const r=await role(user);if(!r)return fail('Forbidden',403);if(action==='settings'){if(r!=='Owner')return fail('Owner only',403);checked(await d.from('settings').upsert({id:1,data:b}));return ok({saved:true})}if(action==='manage'){const t=z.enum(['catalog','categories','packages','guides','orders','messages','roles']).parse(b.table);if(t==='roles'&&r!=='Owner')return fail('Owner only',403);if(t==='orders'){checked(await d.rpc('change_status',{p_id:b.id,p_status:z.enum(['Pending','Confirmed','Picked up','Returned','Cancelled']).parse(b.data.status)}))}else if(t==='roles'){if(b.remove)checked(await d.from(t).delete().eq('user_id',b.id));else checked(await d.from(t).upsert(z.object({user_id:z.string().uuid(),role:z.enum(['Owner','Staff'])}).parse(b.data)))}else if(b.remove)checked(await d.from(t).delete().eq('id',b.id));else checked(await d.from(t).upsert({...b.data,...(b.id?{id:b.id}:{})}));return ok({saved:true})}return fail('Not found',404)}catch(e:any){return fail(e.message||'Request failed')}}
+import { NextResponse } from 'next/server';
+import { ZodError, z } from 'zod';
+import nodemailer from 'nodemailer';
+import type { User } from '@supabase/supabase-js';
+import { db, identity, settings } from '../../../lib/server';
+import seed from '../../../lib/seed.json';
+
+export const dynamic = 'force-dynamic';
+type Context = { params: Promise<{ action: string }> };
+type AdminRole = 'Owner' | 'Staff';
+
+const adminTables = [
+  'catalog', 'categories', 'packages', 'guides', 'orders',
+  'profiles', 'messages', 'subscribers', 'roles',
+] as const;
+const textField = z.string().trim().min(1).max(500);
+const phoneField = z.string().regex(/^[+\d ()-]{7,20}$/);
+const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+function ok(data: unknown) { return NextResponse.json(data); }
+function fail(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status });
+}
+function checked<T extends { data: any; error: any }>(result: T): T['data'] {
+  if (result.error) {
+    const e = result.error;
+    throw new Error(`Database error ${e.code ?? ''}: ${e.message}`.trim());
+  }
+  return result.data;
+}
+
+// This function only reads roles. It never trusts a role sent from the browser.
+async function role(user: User | null): Promise<AdminRole | null> {
+  if (!user) return null;
+  const { data, error } = await db()
+    .from('roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error) {
+    console.error('[ADMIN] Role database lookup failed:', error.code, error.message);
+    throw new Error(`Admin role lookup error (${error.code}): ${error.message}`);
+  }
+  if (!data || (data.role !== 'Owner' && data.role !== 'Staff')) {
+    console.warn('[ADMIN] No Owner/Staff role for authenticated user');
+    return null;
+  }
+  return data.role;
+}
+
+function responseError(error: unknown) {
+  if (error instanceof ZodError) return fail('Invalid submission: ' + error.issues[0]?.message, 400);
+  const message = error instanceof Error ? error.message : 'Unexpected request error';
+  console.error('[API]', message);
+  // Never send provider error internals or credentials to a public browser in production.
+  return fail(process.env.NODE_ENV === 'production' ? 'Request failed. Please contact support.' : message, 500);
+}
+
+export async function GET(req: Request, { params }: Context) {
+  try {
+    const { action } = await params;
+    if (action === 'public') {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return ok({ ...seed, demo: true });
+      }
+      const client = db();
+      const s = await settings();
+      const entries = await Promise.all(
+        (['catalog', 'categories', 'packages', 'guides'] as const).map(async table => {
+          const query = client.from(table).select('*');
+          const result = table === 'categories' ? await query : await query.eq('active', true);
+          return [table, checked(result)] as const;
+        }),
+      );
+      return ok({ settings: s, ...Object.fromEntries(entries), demo: false });
+    }
+
+    if (action === 'reviews') {
+      const s = await settings();
+      if (!s.place_id || !process.env.GOOGLE_PLACES_API_KEY) return ok({ reviews: [] });
+      const res = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(s.place_id)}`, {
+        headers: {
+          'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY,
+          'X-Goog-FieldMask': 'rating,userRatingCount,reviews,googleMapsUri',
+        },
+        next: { revalidate: 3600 },
+      });
+      if (!res.ok) return ok({ reviews: [] });
+      const result = await res.json();
+      const hidden: string[] = Array.isArray(s.hidden_reviews) ? s.hidden_reviews : [];
+      return ok({ ...result, reviews: (result.reviews ?? []).filter((review: any) => !hidden.includes(review.name)) });
+    }
+
+    const user = await identity(req);
+    if (!user) return fail('Sign in first', 401);
+    const client = db();
+
+    if (action === 'account') {
+      // Verify the role separately; never misreport a profile-table error as Forbidden.
+      const userRole = await role(user);
+      const [profile, orders, favorites] = await Promise.all([
+        client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        client.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        client.from('favorites').select('item_id').eq('user_id', user.id),
+      ]);
+      return ok({ profile: checked(profile), orders: checked(orders), favorites: checked(favorites), role: userRole });
+    }
+
+    if (action === 'admin') {
+      const userRole = await role(user);
+      if (!userRole) return fail('Admin access requires an assigned Owner or Staff role', 403);
+      const entries = await Promise.all(
+        adminTables.filter(table => table !== 'roles' || userRole === 'Owner')
+          .map(async table => [table, checked(await client.from(table).select('*'))] as const),
+      );
+      return ok({ role: userRole, settings: await settings(), ...Object.fromEntries(entries) });
+    }
+    return fail('Not found', 404);
+  } catch (error) { return responseError(error); }
+}
+
+export async function POST(req: Request, { params }: Context) {
+  try {
+    const { action } = await params;
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return fail('Connect Supabase to enable submissions', 503);
+    }
+    const client = db();
+    const user = await identity(req);
+
+    if (action === 'upload') {
+      if (!(await role(user))) return fail('Forbidden', 403);
+      const file = (await req.formData()).get('file');
+      if (!(file instanceof File) || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5_000_000) {
+        return fail('Choose JPEG, PNG or WebP under 5 MB');
+      }
+      const path = `${crypto.randomUUID()}.${file.type.split('/')[1]}`;
+      checked(await client.storage.from('gear').upload(path, file, { contentType: file.type }));
+      return ok({ url: client.storage.from('gear').getPublicUrl(path).data.publicUrl });
+    }
+
+    const body = await req.json();
+    if (body.website) return fail('Invalid submission');
+
+    if (action === 'contact') {
+      const values = z.object({
+        name: textField,
+        phone: phoneField.optional().or(z.literal('')),
+        email: z.string().email(),
+        subject: textField,
+        message: z.string().min(1).max(5000),
+      }).parse(body);
+      checked(await client.from('messages').insert(values));
+      let emailed = false;
+      if (process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+        try {
+          const port = Number(process.env.SMTP_PORT || 465);
+          await nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com', port,
+            secure: port === 465,
+            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+          }).sendMail({
+            from: process.env.SMTP_USER,
+            to: (await settings()).email,
+            replyTo: values.email,
+            subject: `Camping Lodge: ${values.subject}`,
+            text: JSON.stringify(values, null, 2),
+          });
+          emailed = true;
+        } catch (error) { console.error('[EMAIL] Contact notification failed:', error); }
+      }
+      return ok({ saved: true, emailed });
+    }
+
+    if (action === 'subscribe') {
+      checked(await client.from('subscribers').insert(z.object({ name: textField, contact: textField }).parse(body)));
+      return ok({ saved: true });
+    }
+
+    if (action === 'checkout') {
+      const values = z.object({
+        name: textField, phone: phoneField, pickup: dateField, return_date: dateField,
+        delivery: z.boolean(), address: z.string().max(1000), notes: z.string().max(2000),
+        cart: z.array(z.object({
+          id: z.string().uuid(), kind: z.enum(['item', 'package']), quantity: z.number().int().min(1).max(100),
+        })).min(1).max(100),
+      }).parse(body);
+      const days = (Date.parse(values.return_date) - Date.parse(values.pickup)) / 86_400_000;
+      const todaySriLanka = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date());
+      if (!Number.isInteger(days) || days < 1 || days > 90 || values.pickup < todaySriLanka || (values.delivery && !values.address.trim())) {
+        return fail('Invalid rental dates or delivery address');
+      }
+      const items = checked(await client.from('catalog').select('*').eq('active', true));
+      const packages = checked(await client.from('packages').select('*').eq('active', true));
+      const lines: any[] = [];
+      const labels: string[] = [];
+      let total = 0;
+      for (const cartItem of values.cart) {
+const product = (cartItem.kind === 'item' ? items ?? [] : packages ?? [])
+  .find((entry: any) => entry.id === cartItem.id);
+        if (!product) return fail('Item unavailable');
+        const rate = Number(product.price);
+        if (!Number.isFinite(rate) || rate < 0) return fail('Invalid item price');
+        const lineTotal = rate * cartItem.quantity * days;
+        total += lineTotal;
+        labels.push(`${labels.length + 1}. ${product.name} x${cartItem.quantity} – Rs.${rate} x ${days} days = Rs.${lineTotal}`);
+        const components = cartItem.kind === 'item' ? [{ item_id: product.id, quantity: 1 }] : product.items;
+        if (!Array.isArray(components)) return fail('Invalid package contents');
+        for (const component of components) {
+          const item = (items ?? []).find(
+  (entry: any) => entry.id === component.item_id
+);
+          if (!item) return fail('Package item unavailable');
+          const quantity = Number(component.quantity) * cartItem.quantity;
+          if (!Number.isInteger(quantity) || quantity < 1) return fail('Invalid package quantity');
+          lines.push({ item_id: component.item_id, quantity, name: item.name,
+            source: product.name, kind: cartItem.kind, source_id: product.id });
+        }
+      }
+      const s = await settings();
+      if (values.delivery) total += Number(s.delivery_charge || 0);
+      if (s.deposit_enabled) total += Number(s.deposit || 0);
+      const { cart: _cart, ...details } = values;
+      // Database RPC performs date-overlap and stock checks atomically.
+      const order = checked(await client.rpc('book', { p: { ...details, user_id: user?.id ?? null, lines, total } }));
+      const message = [
+        `Hello ${s.name}! I'd like to place a rental order.`,
+        `Order: CL-${order.number}`, `Name: ${values.name}`, `Phone: ${values.phone}`,
+        `Pickup: ${values.pickup} | Return: ${values.return_date}`, 'Items:', ...labels,
+        `Delivery: Rs.${values.delivery ? s.delivery_charge : 0}`,
+        `Refundable deposit: Rs.${s.deposit_enabled ? s.deposit : 0}`,
+        `TOTAL: Rs.${total}`, 'Please confirm availability. Thank you!',
+      ].join('\n');
+      return ok({ number: order.number, total,
+        url: `https://wa.me/${String(s.whatsapp).replace(/\D/g, '')}?text=${encodeURIComponent(message)}` });
+    }
+
+    if (!user) return fail('Sign in first', 401);
+    if (action === 'profile') {
+      const values = z.object({ name: textField, phone: phoneField, address: z.string().max(1000) }).parse(body);
+      checked(await client.from('profiles').upsert({ ...values, id: user.id }));
+      return ok({ saved: true });
+    }
+    if (action === 'favorite') {
+      const itemId = z.string().uuid().parse(body.id);
+      if (body.remove) checked(await client.from('favorites').delete().eq('user_id', user.id).eq('item_id', itemId));
+      else checked(await client.from('favorites').upsert({ user_id: user.id, item_id: itemId }));
+      return ok({ saved: true });
+    }
+
+    const userRole = await role(user);
+    if (!userRole) return fail('Forbidden', 403);
+    if (action === 'settings') {
+      if (userRole !== 'Owner') return fail('Owner only', 403);
+      checked(await client.from('settings').upsert({ id: 1, data: body }));
+      return ok({ saved: true });
+    }
+    if (action === 'manage') {
+      const table = z.enum(['catalog', 'categories', 'packages', 'guides', 'orders', 'messages', 'roles']).parse(body.table);
+      if (table === 'roles' && userRole !== 'Owner') return fail('Owner only', 403);
+      if (table === 'orders') {
+        checked(await client.rpc('change_status', {
+          p_id: z.string().uuid().parse(body.id),
+          p_status: z.enum(['Pending', 'Confirmed', 'Picked up', 'Returned', 'Cancelled']).parse(body.data?.status),
+        }));
+      } else if (table === 'roles') {
+        const id = z.string().uuid().parse(body.id);
+        if (body.remove) {
+          // Prevent deleting your own last Owner role accidentally.
+          if (id === user.id) return fail('You cannot remove your own Owner access', 400);
+          checked(await client.from('roles').delete().eq('user_id', id));
+        } else {
+          const values = z.object({ user_id: z.string().uuid(), role: z.enum(['Owner', 'Staff']) }).parse(body.data);
+          checked(await client.from('roles').upsert(values));
+        }
+      } else if (body.remove) {
+        checked(await client.from(table).delete().eq('id', z.string().uuid().parse(body.id)));
+      } else {
+        checked(await client.from(table).upsert({ ...body.data, ...(body.id ? { id: z.string().uuid().parse(body.id) } : {}) }));
+      }
+      return ok({ saved: true });
+    }
+    return fail('Not found', 404);
+  } catch (error) { return responseError(error); }
+}
