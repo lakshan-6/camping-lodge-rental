@@ -3,11 +3,18 @@ import {useEffect,useState} from 'react';
 const slides = [
  {src:'/hero/camp-1.jpg',name:'Into the forest',alt:'Lantern-lit tent among misty green trees'},
  {src:'/hero/camp-2.jpg',name:'Above the clouds',alt:'Camping tent overlooking forested hills at sunrise'},
- {src:'/hero/camp-3.jpg',name:'Under the stars',alt:'Warm tent and campfire in a woodland at dusk'}
+ {src:'/hero/camp-3.jpg',name:'Under the stars',alt:'Warm tent and campfire in a woodland at dusk'},
+ {
+    src: '/hero/camp-4.jpg',
+    name: 'Beyond the ordinary',
+    alt: 'Premium camping experience surrounded by nature'
+  }
 ];
 export function AdventureVisual({customHero}:{customHero?:string}){
- const images=customHero&&customHero!=='/hero.svg'?[{src:customHero,name:'Camping Lodge',alt:'Camping Lodge featured outdoor image'},...slides]:slides;
- const [index,setIndex]=useState(0); const [paused,setPaused]=useState(false); const [reduced,setReduced]=useState(true);
+const images = slides;
+ const [index,setIndex]=useState(0); 
+ 
+ const [paused,setPaused]=useState(false); const [reduced,setReduced]=useState(true);
  const [hidden,setHidden]=useState(false);
  useEffect(()=>{const media=window.matchMedia('(prefers-reduced-motion: reduce)'); const update=()=>setReduced(media.matches); const visibility=()=>setHidden(document.hidden);update();visibility();media.addEventListener('change',update);document.addEventListener('visibilitychange',visibility);return()=>{media.removeEventListener('change',update);document.removeEventListener('visibilitychange',visibility)}},[]);
  const count=images.length; const active=index%count;
