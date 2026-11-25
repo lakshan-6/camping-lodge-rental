@@ -1,9 +1,9 @@
 'use client';
 import {useEffect,useState} from 'react';
 const slides = [
- {src:'/hero/camp-1.webp',name:'Into the forest',alt:'Lantern-lit tent among misty green trees'},
- {src:'/hero/camp-2.webp',name:'Above the clouds',alt:'Camping tent overlooking forested hills at sunrise'},
- {src:'/hero/camp-3.webp',name:'Under the stars',alt:'Warm tent and campfire in a woodland at dusk'}
+ {src:'/hero/camp-1.jpg',name:'Into the forest',alt:'Lantern-lit tent among misty green trees'},
+ {src:'/hero/camp-2.jpg',name:'Above the clouds',alt:'Camping tent overlooking forested hills at sunrise'},
+ {src:'/hero/camp-3.jpg',name:'Under the stars',alt:'Warm tent and campfire in a woodland at dusk'}
 ];
 export function AdventureVisual({customHero}:{customHero?:string}){
  const images=customHero&&customHero!=='/hero.svg'?[{src:customHero,name:'Camping Lodge',alt:'Camping Lodge featured outdoor image'},...slides]:slides;
