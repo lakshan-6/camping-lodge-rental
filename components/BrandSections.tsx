@@ -3,5 +3,122 @@ export function BrandIcon({name}:{name:string}){const paths:Record<string,ReactN
 const socials=[['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok']];
 export function SocialBadges({s}:{s:any}){return <div className="social-badges">{socials.filter(([k])=>s[k]).map(([k,n])=><a className={'social-badge '+k} key={k} href={s[k]} target="_blank" rel="noopener noreferrer"><BrandIcon name={k}/><span>{n}</span></a>)}</div>}
 export function ContactDetails({s}:{s:any}){return <div className="contact-detail-list">{[['pin','Location',s.address,null],['clock','Opening hours',s.hours,null],['phone','Call us',s.phone,'tel:'+s.phone],['mail','Email us',s.email,'mailto:'+s.email]].map(([icon,label,value,href])=><div className="contact-detail" key={label}><span className="detail-icon"><BrandIcon name={icon!}/></span><div><span className="detail-label">{label}</span>{href?<a href={href}>{value}</a>:<p>{value}</p>}</div></div>)}</div>}
-export function VisitSection({s,wa}:{s:any,wa:(message:string)=>string}){return <section className="visit-section"><div className="visit-visual"><div className="visit-visual-copy"><p className="eyebrow">YOUR NEXT ADVENTURE STARTS HERE</p><h2>Find your way<br/>to the wild.</h2><p>Visit our camping gear rental base.</p><span className="visit-location-tag"><BrandIcon name="pin"/>{s.address}</span></div></div><div className="visit-content"><p className="eyebrow">OUR LOCATION</p><h2>Visit <em>{s.name}</em></h2><p className="visit-intro">Get in touch to arrange your equipment pickup or plan your next outdoor escape.</p><ContactDetails s={s}/><div className="visit-actions"><a className="btn gold" href={s.map} target="_blank" rel="noopener noreferrer"><BrandIcon name="pin"/> Get directions <BrandIcon name="arrow"/></a><a className="btn outline" href={wa('Hello Camping Lodge! I would like to arrange a gear pickup.')} aria-label="Chat on WhatsApp"><BrandIcon name="whatsapp"/> Chat with us</a></div>{s.map_embed&&<iframe className="visit-map" title="Camping Lodge business location" src={s.map_embed} loading="lazy"/>}</div></section>}
+
+export function VisitSection({
+  s,
+  wa
+}: {
+  s: any;
+  wa: (text?: string) => string;
+}) {
+  const mapUrl =
+    s?.map_url ||
+    "https://maps.app.goo.gl/5e3xxy7PatQ4Cg3f8";
+
+  const phone = s?.phone || "0715524499";
+  const email = s?.email || "campinglodge7@gmail.com";
+  const location = s?.location || "Kandy, Sri Lanka";
+
+  return (
+    <section className="cl-visit">
+      <div className="cl-visit-card">
+
+        {/* Camping photo */}
+        <div className="cl-visit-image">
+          <img
+            src="/hero/camp-2.jpg"
+            alt="Camping Lodge outdoor adventure"
+            loading="lazy"
+          />
+          <div className="cl-visit-shade" />
+
+          <div className="cl-visit-photo-text">
+            <span>YOUR NEXT ADVENTURE STARTS HERE</span>
+
+            <h2>
+              Find your way
+              <br />
+              to the <em>wild.</em>
+            </h2>
+
+            <p>Visit our camping gear rental base.</p>
+          </div>
+        </div>
+
+        {/* Location content */}
+        <div className="cl-visit-content">
+
+          <span className="cl-visit-eyebrow">
+            OUR LOCATION
+          </span>
+
+          <h2>
+            Visit <em>Camping Lodge</em>
+          </h2>
+
+          <p className="cl-visit-description">
+            Get in touch to arrange your equipment pickup
+            or plan your next outdoor escape.
+          </p>
+
+          <div className="cl-visit-location">
+            <span aria-hidden="true">📍</span>
+            <span>{location}</span>
+          </div>
+
+          {/* Desktop information only */}
+          <div className="cl-visit-details">
+            <div>
+              <strong>Opening hours</strong>
+              <span>
+                {s?.opening_hours ||
+                  "Contact us for opening hours"}
+              </span>
+            </div>
+
+            <div>
+              <strong>Phone</strong>
+              <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>
+                {phone}
+              </a>
+            </div>
+
+            <div>
+              <strong>Email</strong>
+              <a href={`mailto:${email}`}>{email}</a>
+            </div>
+          </div>
+
+          <div className="cl-visit-actions">
+
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cl-visit-directions"
+            >
+              <span>↗</span>
+              Get directions
+            </a>
+
+            <a
+              href={wa(
+                "Hello Camping Lodge! I would like to ask about camping gear rental."
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cl-visit-whatsapp"
+              aria-label="Chat on WhatsApp"
+              title="WhatsApp"
+            >
+              <BrandIcon name="whatsapp" />
+            </a>
+
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function PremiumFooter({s,wa}:{s:any,wa:(message:string)=>string}){return <footer className="foot premium-footer"><div className="wrap"><div className="footer-cta"><div><p className="eyebrow">THE OUTDOORS ARE CALLING</p><h2>Ready for your next <em>escape?</em></h2></div><a href="/rent" className="btn gold">Explore rental gear <BrandIcon name="arrow"/></a></div><div className="footer-columns"><div className="footer-brand"><a href="/" className="footer-logo"><img src={s.logo} alt={s.name}/><strong>{s.name}</strong></a><p>Gear up. Get outside. Discover more with camping equipment rentals in Sri Lanka.</p><SocialBadges s={s}/></div><div className="footer-links"><h3>Explore</h3><a href="/rent">Rental gear</a><a href="/packages">Packages</a>{s.guide&&<a href="/guide">Camping guides</a>}<a href="/buy">Buy equipment</a></div><div className="footer-links"><h3>Information</h3><a href="/about">About us</a><a href="/contact">Contact us</a><a href="/privacy">Privacy policy</a><a href="/refund">Refund policy</a></div><div className="footer-contact"><h3>Get in touch</h3><ContactDetails s={s}/><a className="footer-chat" href={wa('Hello Camping Lodge!')}><BrandIcon name="whatsapp"/> Chat on WhatsApp <BrandIcon name="arrow"/></a></div></div><div className="footer-bottom"><span>© {new Date().getFullYear()} {s.name}. All rights reserved.</span><span>Made for the outdoors · Sri Lanka</span><a href="#" aria-label="Back to top">Back to top <BrandIcon name="up"/></a></div></div></footer>}
