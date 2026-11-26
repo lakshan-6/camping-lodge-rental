@@ -1913,3 +1913,266 @@ body,button,input,select,textarea{font-family:'Manrope','Segoe UI',Arial,sans-se
     height: 20px;
   }
 }
+
+/* Camping Lodge — Compact Mobile Card Buttons */
+
+@media (max-width: 700px) {
+
+  .gear-card .gear-card-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 7px !important;
+    margin-top: 8px !important;
+  }
+
+  .gear-card .gear-card-actions .btn {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 6px 13px !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    font-weight: 600 !important;
+    border-radius: 999px !important;
+    white-space: nowrap !important;
+  }
+
+  .gear-card .gear-card-actions .btn.outline {
+    border-width: 1px !important;
+    box-shadow: none !important;
+  }
+
+  .gear-card .gear-card-actions .gear-favorite {
+    flex: 0 0 28px !important;
+    min-width: 28px !important;
+    height: 34px !important;
+  }
+}
+
+/* Balanced Mobile Card Buttons */
+
+@media (max-width: 700px) {
+
+  .gear-card .gear-card-actions {
+    display: grid !important;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 8px !important;
+    width: 100%;
+    margin-top: 8px !important;
+    align-items: center;
+  }
+
+  .gear-card .gear-card-actions .btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    border-radius: 999px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gear-card .gear-card-actions .gear-favorite {
+    display: none !important;
+  }
+}
+
+/* Camping Lodge — Premium Mobile Card Buttons */
+
+@media (max-width: 700px) {
+  .gear-card .gear-card-actions {
+    display: grid !important;
+    grid-template-columns: 1.2fr 1fr !important;
+    align-items: center;
+    gap: 9px !important;
+    width: 100%;
+    margin-top: 10px !important;
+  }
+
+  .gear-card .gear-card-actions .btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 8px 10px !important;
+    border-radius: 11px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+
+    outline: none !important;
+    box-shadow: none !important;
+    transition:
+      background 0.2s ease,
+      transform 0.15s ease,
+      border-color 0.2s ease !important;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Add to Cart */
+  .gear-card .gear-card-actions .btn.gold {
+    background: linear-gradient(
+      120deg,
+      #f2cf87,
+      #dda33f
+    ) !important;
+    color: #13231a !important;
+    border: 1px solid #e5b763 !important;
+  }
+
+  /* Details - remove double border */
+  .gear-card .gear-card-actions .btn.outline {
+    background: #294032 !important;
+    color: #f4eee2 !important;
+    border: 1px solid #527258 !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Touch feedback */
+  .gear-card .gear-card-actions .btn:active {
+    transform: scale(0.96) !important;
+    filter: brightness(1.12);
+  }
+
+  /* Keyboard accessibility */
+  .gear-card .gear-card-actions .btn:focus-visible {
+    outline: 2px solid #f2cf87 !important;
+    outline-offset: 3px;
+  }
+
+  /* Hover only on actual mouse devices */
+  @media (hover: hover) and (pointer: fine) {
+    .gear-card .gear-card-actions .btn.gold:hover {
+      background: #f6da9e !important;
+      transform: translateY(-2px);
+    }
+
+    .gear-card .gear-card-actions .btn.outline:hover {
+      background: #385641 !important;
+      border-color: #e5b763 !important;
+      transform: translateY(-2px);
+    }
+  }
+
+  .gear-card .gear-card-actions .gear-favorite {
+    display: none !important;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .gear-card .gear-card-actions .btn {
+    transition: none !important;
+  }
+}
+
+/* Mobile Hero — Lower Action Buttons */
+
+@media (max-width: 700px) {
+
+  .hero .hero-copy {
+    min-height: 76svh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  /* Move buttons lower without changing design */
+  .hero .hero-copy > .row {
+    margin-top: clamp(55px, 12svh, 110px) !important;
+  }
+
+  /* Keep hero text near the top */
+  .hero .hero-copy > .eyebrow {
+    margin-top: 0 !important;
+  }
+
+}
+
+/* Mobile Hero — Buttons near Field Notes */
+
+@media (max-width: 700px) {
+
+  .hero {
+    position: relative;
+  }
+
+  /* Place action buttons near the slider caption */
+  .hero .hero-copy > .row {
+    position: absolute !important;
+    left: 18px !important;
+    right: auto !important;
+    bottom: 35px !important;
+    top: auto !important;
+
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+
+    width: auto !important;
+    margin: 0 !important;
+    z-index: 8;
+  }
+
+  /* Remove View packages border and decorative outline */
+  .hero .hero-copy > .row > .btn.outline {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: rgba(18, 37, 28, 0.72) !important;
+    color: #f8f0df !important;
+    backdrop-filter: blur(8px);
+  }
+
+  .hero .hero-copy > .row > .btn.outline::before,
+  .hero .hero-copy > .row > .btn.outline::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* Keep keyboard focus visible */
+  .hero .hero-copy > .row > .btn.outline:focus-visible {
+    outline: 2px solid #e9bd77 !important;
+    outline-offset: 3px;
+  }
+}
+
+
+/* Camping Lodge — Compact Mobile Hero */
+
+@media (max-width: 700px) {
+
+  .hero {
+    height: 620px !important;
+    min-height: 620px !important;
+    max-height: 620px !important;
+    overflow: hidden;
+  }
+
+  .hero .photo-stage,
+  .hero .photo-layers {
+    height: 100% !important;
+  }
+
+  .hero .hero-copy {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  /* Keep buttons aligned with Field Notes */
+  .hero .hero-copy > .row {
+    bottom: 95px !important;
+  }
+}
