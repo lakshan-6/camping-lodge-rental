@@ -8,7 +8,7 @@ const money=(n:any)=>'Rs. '+Number(n||0).toLocaleString('en-LK',{maximumFraction
 const today=()=>new Date(Date.now()+19800000).toISOString().slice(0,10);const nextday=()=>new Date(Date.now()+19800000+86400000).toISOString().slice(0,10);
 function Field({name,value,onChange,type='text',required=false}:{name:string,value:any,onChange:(v:any)=>void,type?:string,required?:boolean}){return <label>{name}{type==='textarea'?<textarea value={value??''} required={required} onChange={e=>onChange(e.target.value)}/>:<input type={type} required={required} checked={type==='checkbox'?!!value:undefined} value={type==='checkbox'?undefined:value??''} onChange={e=>onChange(type==='checkbox'?e.target.checked:type==='number'?Number(e.target.value):e.target.value)}/>}</label>}
 function Photo({src,name,category}:{src?:string,name:string,category?:string}){return src?<img className="photo" src={src} alt={name} loading="lazy"/>:<div className="placeholder" role="img" aria-label={name}><GearIcon category={category}/><span className="placeholder-label">{category||'Outdoor gear'} / image pending</span></div>}
-export default function Site({path}:{path:string}){const page=path.split('/')[0];const [data,D]=useState<any>({...seed,demo:true});const [token,T]=useState('');const [user,U]=useState<any>(null);const [account,A]=useState<any>(null);const [admin,AD]=useState<any>(null);const [cart,C]=useState<any[]>([]);const [loaded,L]=useState(false);const [notice,N]=useState('');const [query,Q]=useState('');const [cat,K]=useState('');const [sort,S]=useState('newest');const [pickup,P]=useState(today());const [ret,R]=useState(nextday());const [details,F]=useState<any>({name:'',phone:'',address:'',notes:'',delivery:false,website:'',email:'',subject:'',message:'',contact:''});const [confirmation,CF]=useState<any>(null);const [reviews,RV]=useState<any>({reviews:[]});const [mode,M]=useState('login');const [password,PW]=useState('');const [section,SEC]=useState('Overview');const [edit,E]=useState<any>(null);const [detail,DT]=useState<any>(null);const [busy,B]=useState(false);
+export default function Site({path}:{path:string}){const page=path.split('/')[0];const [data,D]=useState<any>({...seed,demo:true});const [token,T]=useState('');const [user,U]=useState<any>(null);const [account,A]=useState<any>(null);const [admin,AD]=useState<any>(null);const [cart,C]=useState<any[]>([]);const [loaded,L]=useState(false);const [notice,N]=useState('');const [query,Q]=useState('');const [cat,K]=useState('');const [sort,S]=useState('newest');const [pickup,P]=useState(today());const [ret,R]=useState(nextday());const [details,F]=useState<any>({name:'',phone:'',address:'',notes:'',delivery:false,website:'',email:'',subject:'',message:'',contact:''});const [confirmation,CF]=useState<any>(null);const [reviews,RV]=useState<any>({reviews:[]});const [mode,M]=useState('login');const [password,PW]=useState('');const [section,SEC]=useState('Overview');const [edit,E]=useState<any>(null);const [detail,DT]=useState<any>(null);const [busy,B]=useState(false);const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
 const s=data.settings;const days=Math.max(1,Math.round((Date.parse(ret)-Date.parse(pickup))/86400000)||1);const set=(k:string,v:any)=>F((x:any)=>({...x,[k]:v}));
 async function api(action:string,body?:any,t=token){const res=await fetch('/api/'+action,{method:body===undefined?'GET':'POST',headers:{...(t?{Authorization:'Bearer '+t}:{}),...(body instanceof FormData?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:body instanceof FormData?body:JSON.stringify(body)})});const j=await res.json();if(!res.ok)throw Error(j.error||'Request failed');return j}
 async function run(fn:()=>Promise<any>){if(busy)return;B(true);N('');try{await fn()}catch(e:any){N(e.message)}finally{B(false)}}
@@ -20,107 +20,139 @@ function add(p:any,kind='item',qty=1){const max=kind==='item'?p.stock:Math.min(.
 const wa=(text='')=>`https://wa.me/${s.whatsapp}?text=${encodeURIComponent(text)}`;const link=(href:string,text:string,cls='btn')=><a href={href} className={cls}>{text}</a>;
 function dates(){return <div className="row"><Field name="Pickup date" type="date" value={pickup} onChange={P}/><Field name="Return date" type="date" value={ret} onChange={R}/><span>{days} rental day(s)</span></div>}
 
+
+
 function cards(items: any[], kind = 'item') {
   return (
-    <div className="gridcards gear-grid">
-      {items.map(p => (
-        <motion.article
-          key={p.id}
-          initial={{ opacity: 0, y: 18 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.12 }}
-          whileHover={{ y: -5 }}
-          transition={{ duration: 0.35 }}
-          className="paper stack gear-card"
-        >
-          <div className="gear-card-media">
-            <Photo
-              src={p.images?.[0] || p.image}
-              name={p.name}
-              category={p.category}
-            />
-          </div>
+    <div className="gear-carousel-shell">
+      <div className="gear-swipe-hint" aria-hidden="true">
+        <span>SWIPE TO EXPLORE</span>
+        <span>→</span>
+      </div>
 
-          <div className="row space">
-            <span className="badge">{p.category || 'Bundle'}</span>
-            {kind === 'item' && (
-              <span className="muted">
-                {p.stock ? `${p.stock} total stock` : 'Out of stock'}
-              </span>
-            )}
-          </div>
-
-          <h3 className="gear-card-title">{p.name}</h3>
-
-          <div className="price">
-            {money(p.price)}
-            <small className="muted"> / day</small>
-          </div>
-
-          {kind === 'package' && (
-            <div className="gear-package-info">
-              <p>
-                {p.items.map((l: any) =>
-                  `${l.quantity} × ${
-                    data.catalog.find((i: any) => i.id === l.item_id)?.name ||
-                    'Unavailable'
-                  }`
-                ).join(' · ')}
-              </p>
-              <p className="muted">
-                Save {money(Math.max(
-                  0,
-                  p.items.reduce(
-                    (n: number, l: any) =>
-                      n + Number(
-                        data.catalog.find(
-                          (i: any) => i.id === l.item_id
-                        )?.price || 0
-                      ) * l.quantity,
-                    0
-                  ) - p.price
-                ))} / day
-              </p>
+      <div
+        className="gridcards gear-grid"
+        role="region"
+        aria-label={kind === 'package' ? 'Camping packages' : 'Camping gear products'}
+        tabIndex={0}
+      >
+        {items.map(p => (
+          <motion.article
+            key={p.id}
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.12 }}
+            whileHover={{ y: -5 }}
+            transition={{ duration: 0.35 }}
+            className={`paper stack gear-card ${
+              kind === 'package' ? 'gear-card--package' : 'gear-card--item'
+            }`}
+          >
+            <div className="gear-card-media">
+              <Photo
+                src={p.images?.[0] || p.image}
+                name={p.name}
+                category={p.category}
+              />
             </div>
-          )}
 
-          <div className="row gear-card-actions">
-            <button
-              className="btn gold"
-              disabled={kind === 'item' && !p.stock}
-              onClick={() => add(p, kind)}
-            >
-              Add to cart
-            </button>
+            <div className="row space gear-card-meta">
+              <span className="badge">
+                {p.category || 'Bundle'}
+              </span>
 
-            <button className="btn outline" onClick={() => DT(p)}>
-              Details
-            </button>
+              {kind === 'item' && (
+                <span className="muted">
+                  {p.stock ? `${p.stock} total stock` : 'Out of stock'}
+                </span>
+              )}
+            </div>
 
-            {kind === 'item' && user && (
-              <button
-                aria-label="Toggle favorite"
-                onClick={() => run(async () => {
-                  await api('favorite', {
-                    id: p.id,
-                    remove: account?.favorites?.some(
-                      (x: any) => x.item_id === p.id
-                    )
-                  });
-                  A(await api('account'));
-                })}
-              >
-                {account?.favorites?.some(
-                  (x: any) => x.item_id === p.id
-                ) ? '♥' : '♡'}
-              </button>
+            <h3 className="gear-card-title">{p.name}</h3>
+
+            <div className="price">
+              {money(p.price)}
+              <small className="muted"> / day</small>
+            </div>
+
+            {kind === 'package' && (
+              <div className="gear-package-info">
+                <p>
+                  {p.items.map((l: any) =>
+                    `${l.quantity} × ${
+                      data.catalog.find((i: any) => i.id === l.item_id)?.name ||
+                      'Unavailable'
+                    }`
+                  ).join(' · ')}
+                </p>
+
+                <p className="muted">
+                  Save {money(Math.max(
+                    0,
+                    p.items.reduce(
+                      (n: number, l: any) =>
+                        n +
+                        Number(
+                          data.catalog.find(
+                            (i: any) => i.id === l.item_id
+                          )?.price || 0
+                        ) * l.quantity,
+                      0
+                    ) - p.price
+                  ))} / day
+                </p>
+              </div>
             )}
-          </div>
-        </motion.article>
-      ))}
+
+            <div className="row gear-card-actions">
+              <button
+                type="button"
+                className="btn gold"
+                disabled={kind === 'item' && !p.stock}
+                onClick={() => add(p, kind)}
+              >
+                Add to cart
+              </button>
+
+              <button
+                type="button"
+                className="btn outline"
+                onClick={() => DT(p)}
+              >
+                Details
+              </button>
+
+              {kind === 'item' && user && (
+                <button
+                  type="button"
+                  className="gear-favorite"
+                  aria-label="Toggle favorite"
+                  onClick={() =>
+                    run(async () => {
+                      await api('favorite', {
+                        id: p.id,
+                        remove: account?.favorites?.some(
+                          (x: any) => x.item_id === p.id
+                        )
+                      });
+
+                      A(await api('account'));
+                    })
+                  }
+                >
+                  {account?.favorites?.some(
+                    (x: any) => x.item_id === p.id
+                  ) ? '♥' : '♡'}
+                </button>
+              )}
+            </div>
+          </motion.article>
+        ))}
+      </div>
     </div>
   );
 }
+
 
 function reviewSection(){return <section className="section stack"><h2>What campers say</h2>{reviews.rating&&<p>★ {reviews.rating} / 5 · {reviews.userRatingCount} Google ratings</p>}<div className="gridcards">{reviews.reviews?.map((r:any)=><div className="paper stack" key={r.name}><div className="row">{r.authorAttribution?.photoUri&&<img width="40" height="40" className="rounded-full" src={r.authorAttribution.photoUri} alt=""/>}<a href={r.authorAttribution?.uri}>{r.authorAttribution?.displayName}</a></div><p>★ {r.rating} · {r.relativePublishTimeDescription}</p><p>{r.text?.text}</p></div>)}</div>{!reviews.reviews?.length&&<p className="muted">Google reviews will appear once the business review integration is configured.</p>}{s.place_id&&link('https://search.google.com/local/writereview?placeid='+encodeURIComponent(s.place_id),'Write a Google review')}{link('/reviews','All displayed reviews','btn outline')}</section>}
 function formField(k:string,label:string,type='text',required=true){return <Field name={label} type={type} required={required} value={details[k]} onChange={v=>set(k,v)}/>}
@@ -169,8 +201,50 @@ function adminUI(){if(!user)return login();if(!admin)return <p>Admin access requ
   </div>
   <p className="muted">Removing a photo here only removes it from the gallery list when you save; it does not delete the stored file.</p>
 </div><button className="btn" disabled={busy}>Save settings</button></form>:<><div className="row"><input className="max-w-xs" placeholder="Search records" value={query} onChange={e=>Q(e.target.value)}/>{templates[section]&&<button className="btn" onClick={()=>E({...templates[section]})}>Add new</button>}{section==='Subscribers'&&<button className="btn" onClick={()=>{const csv=['name,contact,created_at',...rows.map((r:any)=>[r.name,r.contact,r.created_at].map(v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replaceAll('"','""')+'"').join(','))].join('\n');const u=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=u;a.download='subscribers.csv';a.click();URL.revokeObjectURL(u)}}>Export CSV</button>}</div>{edit&&<form className="paper fields" onSubmit={e=>{e.preventDefault();run(async()=>{await api('manage',{table:map[section],id:edit.id,data:edit});E(null);await refresh();N('Saved')})}}>{Object.keys(templates[section]||{}).map(k=><Field key={k} name={k} value={Array.isArray(edit[k])?JSON.stringify(edit[k]):edit[k]} type={typeof edit[k]==='boolean'?'checkbox':typeof edit[k]==='number'?'number':['description','content','specs','items','images'].includes(k)?'textarea':'text'} onChange={v=>E({...edit,[k]:v})}/>)}{['Inventory','Packages','Guides'].includes(section)&&<label>Upload images<input type="file" multiple={section==='Inventory'} accept="image/jpeg,image/png,image/webp" onChange={e=>run(async()=>{const urls=[];for(const file of Array.from(e.target.files||[])){const f=new FormData();f.append('file',file);urls.push((await api('upload',f)).url)}E({...edit,...(section==='Inventory'?{images:urls}:{image:urls[0]})})})}/></label>}{section==='Packages'&&<div className="stack"><p>Select gear quantities</p>{admin.catalog.map((i:any)=><div className="row" key={i.id}><span>{i.name}</span><input aria-label={i.name+' quantity'} className="max-w-24" type="number" min="0" value={Array.isArray(edit.items)?edit.items.find((l:any)=>l.item_id===i.id)?.quantity||0:0} onChange={e=>{const q=Number(e.target.value);E({...edit,items:[...(Array.isArray(edit.items)?edit.items:[]).filter((l:any)=>l.item_id!==i.id),...(q>0?[{item_id:i.id,quantity:q}]:[])]})}}/></div>)}</div>}<button className="btn" type="button" onClick={()=>run(async()=>{const clean={...edit};for(const k of ['items','images'])if(typeof clean[k]==='string')clean[k]=JSON.parse(clean[k]);await api('manage',{table:map[section],id:clean.id,data:clean});E(null);await refresh();N('Saved')})}>Save changes</button><button type="button" onClick={()=>E(null)}>Cancel</button></form>}<div className="scroll paper"><table><thead><tr><th>Record</th><th>Details</th><th>Actions</th></tr></thead><tbody>{rows.filter((r:any)=>JSON.stringify(r).toLowerCase().includes(query.toLowerCase())).map((r:any)=><tr key={r.id||r.user_id}><td>{r.name||r.title||r.user_id}</td><td>{section==='Orders'?<div className="stack"><strong>CL-{r.number} · {money(r.total)}</strong><p>{r.pickup} → {r.return_date}</p><p>{r.phone}</p>{r.lines.map((l:any,i:number)=><p key={i}>{l.name} × {l.quantity}</p>)}<select aria-label="Order status" value={r.status} onChange={e=>run(async()=>{await api('manage',{table:'orders',id:r.id,data:{status:e.target.value}});await refresh()})}>{['Pending','Confirmed','Picked up','Returned','Cancelled'].map(st=><option key={st}>{st}</option>)}</select></div>:section==='Messages'?<div>{r.subject}<p>{r.message}</p><p>{r.email} · {r.read?'Read':'Unread'}</p></div>:section==='Inventory'?`${money(r.price)} · ${r.stock} in stock`:section==='Subscribers'?r.contact:section==='Customers'?<>{r.phone}<p>{admin.orders.filter((o:any)=>o.user_id===r.id).length} orders</p></>:r.role||r.category||r.description||''}</td><td><div className="row">{templates[section]&&<><button onClick={()=>E({...r})}>Edit</button><button onClick={()=>{if(confirm('Delete this record?'))run(async()=>{await api('manage',{table:map[section],id:r.id||r.user_id,remove:true});await refresh()})}}>Delete</button></>}{section==='Orders'&&<><a href={'https://wa.me/'+r.phone.replace(/\D/g,'').replace(/^0/,'94')}>WhatsApp</a><button onClick={()=>{DT(r);setTimeout(()=>window.print(),300)}}>Print receipt</button></>}{section==='Messages'&&<><a href={'mailto:'+r.email}>Reply</a><button onClick={()=>run(async()=>{await api('manage',{table:'messages',id:r.id,data:{...r,read:!r.read}});await refresh()})}>Toggle read</button></>}</div></td></tr>)}</tbody></table>{!rows.length&&<p>No records yet.</p>}</div></>}</main></div>}
-return <><header className="nav"><a className="brand" href="/"><img src={s.logo} alt="Camping Lodge logo"/>{s.name}</a><nav aria-label="Main navigation">{[['','Home'],['rent','Rent Items'],['packages','Packages'],['buy',s.buy_live?'Buy':'Buy · Soon'],...(s.guide?[['guide','Guide']]:[]),['contact','Contact']].map(([p,n])=><a key={p} href={'/'+p} aria-current={page===p?'page':undefined}>{n}</a>)}</nav><div className="row"><a className="cart-link" href="/cart" aria-label="Shopping cart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="22" height="22" aria-hidden="true"><path d="M3 3h2l3 12h11l3-9H6M9 21h.01M18 21h.01" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{cart.reduce((n,c)=>n+c.quantity,0)}</span></a>{link('/account',user?'My Account':'Login')}</div></header>{notice&&<div className="notice" role="status">{notice} <button onClick={()=>N('')} aria-label="Dismiss">×</button></div>}{data.demo&&<div className="text-center text-sm p-2 bg-cream">Demo catalogue · connect Supabase to accept real orders.</div>}
-{page===''?<><section className="hero" ><AdventureVisual customHero={s.hero}/><motion.div initial={{opacity:0,y:24}} animate={{opacity:1,y:0}} transition={{duration:.8}} className="wrap stack hero-copy"><p className="eyebrow">Kandy · Sri Lanka · Gear rental</p><h1>Beyond<br/>the <em>ordinary.</em></h1><p className="max-w-md">Premium camping equipment for unforgettable adventures. Rent what you need, wherever the trail takes you.</p><div className="row">{link('/rent','Rent gear','btn gold')}{link('/packages','View packages','btn outline')}</div><div className="hero-meta"><span>01 / EXPLORE</span><span>RENT · EXPLORE · REPEAT</span></div></motion.div><a href="#how-it-works" className="scroll-cue">SCROLL TO EXPLORE <span>↓</span></a></section><div className="wrap"><section id="how-it-works" className="section stack"><p className="eyebrow">Simple adventures</p><h2>How it works</h2><div className="gridcards">{['Choose your gear','Add to your cart','Book via WhatsApp','Pick up or delivery'].map((x,i)=><div className="paper" key={x}><span className="eyebrow">0{i+1}</span><h3>{x}</h3></div>)}</div></section><section className="section stack"><div className="row space"><h2>Featured rental gear</h2>{link('/rent','Explore all','btn outline')}</div>{cards(data.catalog.filter((p:any)=>p.featured))}</section><section className="section stack"><h2>Explore categories</h2><div className="gridcards">{data.categories.map((c:any)=><a className="paper" href={'/rent?category='+encodeURIComponent(c.name)} key={c.name}><GearIcon category={c.name} className="category-icon"/><h3>{c.name}</h3></a>)}</div></section><section className="section stack"><h2>Ready-made adventures</h2>{cards(data.packages.filter((p:any)=>p.featured),'package')}</section><section className="section stack"><h2>Why Camping Lodge?</h2><div className="gridcards">{['Quality gear','Affordable daily rentals','Based in Kandy','Easy WhatsApp booking'].map(x=><div className="paper" key={x}>✓ {x}</div>)}</div></section><GoogleReviews /><section className="section stack">
+return <><header className="nav camping-nav">
+  <a className="brand" href="/">
+    <img src={s.logo} alt="Camping Lodge logo" />
+    {s.name}
+  </a>
+  <nav id="camping-mobile-navigation" className={'camping-nav-links'+(mobileMenuOpen?' is-open':'')} aria-label="Main navigation">
+    {[
+      ['', 'Home'],
+      ['rent', 'Rent Items'],
+      ['packages', 'Packages'],
+      ['buy', s.buy_live ? 'Buy' : 'Buy · Soon'],
+      ...(s.guide ? [['guide', 'Guide']] : []),
+      ['contact', 'Contact']
+    ].map(([p,n]) => (
+      <a
+        key={p}
+        href={'/'+p}
+        aria-current={page===p?'page':undefined}
+        onClick={()=>setMobileMenuOpen(false)}
+      >{n}</a>
+    ))}
+  </nav>
+  <div className="row camping-nav-actions">
+    <a className="cart-link" href="/cart" aria-label="Shopping cart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="22" height="22" aria-hidden="true">
+        <path d="M3 3h2l3 12h11l3-9H6M9 21h.01M18 21h.01" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      <span>{cart.reduce((n,c)=>n+c.quantity,0)}</span>
+    </a>
+    {link('/account',user?'My Account':'Login')}
+    <button
+      type="button"
+      className="camping-menu-toggle"
+      aria-label={mobileMenuOpen?'Close navigation menu':'Open navigation menu'}
+      aria-controls="camping-mobile-navigation"
+      aria-expanded={mobileMenuOpen}
+      onClick={()=>setMobileMenuOpen(open=>!open)}
+    >
+      <span className="camping-menu-lines" aria-hidden="true"><span/><span/><span/></span>
+    </button>
+  </div>
+</header>{notice&&<div className="notice" role="status">{notice} <button onClick={()=>N('')} aria-label="Dismiss">×</button></div>}{data.demo&&<div className="text-center text-sm p-2 bg-cream">Demo catalogue · connect Supabase to accept real orders.</div>}
+{page===''?<><section className="hero" ><AdventureVisual customHero={s.hero}/><motion.div initial={{opacity:0,y:24}} animate={{opacity:1,y:0}} transition={{duration:.8}} className="wrap stack hero-copy"><p className="eyebrow">Kandy · Sri Lanka · Gear rental</p><h1>Beyond<br/>the <em>ordinary.</em></h1><p className="max-w-md">Premium camping equipment for unforgettable adventures. Rent what you need, wherever the trail takes you.</p><div className="row">{link('/rent','Rent gear','btn gold')}{link('/packages','View packages','btn outline')}</div><div className="hero-meta"><span>01 / EXPLORE</span><span>RENT · EXPLORE · REPEAT</span></div></motion.div><a href="#how-it-works" className="scroll-cue">SCROLL TO EXPLORE <span>↓</span></a></section><div className="wrap"><section id="how-it-works" className="section stack"><p className="eyebrow">Simple adventures</p><h2>How it works</h2><div className="gridcards">{['Choose your gear','Add to your cart','Book via WhatsApp','Pick up or delivery'].map((x,i)=><div className="paper" key={x}><span className="eyebrow">0{i+1}</span><h3>{x}</h3></div>)}</div></section><section className="section stack"><div className="row space"><h2>Featured rental gear</h2>{link('/rent','Explore all','btn outline')}</div>{cards(data.catalog.filter((p:any)=>p.featured))}</section><section className="section stack"><h2>Explore categories</h2><div className="gridcards category-mobile-grid">
+  {data.categories.map((c:any) =><a className="paper" href={'/rent?category='+encodeURIComponent(c.name)} key={c.name}><GearIcon category={c.name} className="category-icon"/><h3>{c.name}</h3></a>)}</div></section><section className="section stack"><h2>Ready-made adventures</h2>{cards(data.packages.filter((p:any)=>p.featured),'package')}</section><section className="section stack"><h2>Why Camping Lodge?</h2><div className="gridcards">{['Quality gear','Affordable daily rentals','Based in Kandy','Easy WhatsApp booking'].map(x=><div className="paper" key={x}>✓ {x}</div>)}</div></section><GoogleReviews /><section className="section stack">
   <div className="row space">
     <div>
       <p className="eyebrow">OUR FIELD JOURNAL</p>
